@@ -1,0 +1,9 @@
+SSID,Capabilities,BSSID,Level,Timestamp,Venue Name
+eduroam,[WPA2-EAP-CCMP][RSN-EAP-CCMP][ESS],88:e0:f3:20:2c:04,-67,8 days,
+TechPublic,[ESS],88:e0:f3:20:2c:00,-70,8 days,
+TechSec,[WPA2-EAP-CCMP][RSN-EAP-CCMP][ESS],88:e0:f3:20:2c:02,-72,8 days,
+eduroam,[WPA2-EAP+FT/EAP-CCMP][RSN-EAP+FT/EAP-CCMP][ESS],b0:b8:67:24:55:e2,-74,8 days,
+TechPublic,[ESS],b0:b8:67:24:55:e0,-79,8 days,
+TechSec,[WPA2-EAP+FT/EAP-CCMP][RSN-EAP+FT/EAP-CCMP][ESS],b0:b8:67:24:55:e1,-80,8 days,
+DIRECT-CB-HP OfficeJet Pro 9020,[WPA2-PSK-CCMP][RSN-PSK-CCMP][ESS][WPS],c6:65:16:cc:c7:cb,-89,8 days,
+DIRECT-D5-HP OfficeJet Pro 7740,[WPA2-PSK-CCMP][RSN-PSK-CCMP][ESS][WPS],b2:5c:da:b7:22:d5,-91,8 days,

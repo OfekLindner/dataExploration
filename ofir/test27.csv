@@ -1,0 +1,7 @@
+SSID,Capabilities,BSSID,Level,Timestamp,Venue Name
+TechSec,[WPA2-EAP+FT/EAP-CCMP][RSN-EAP+FT/EAP-CCMP][ESS],b0:b8:67:ed:32:21,-67,7 days,
+ASA - Tehcnion,[WPA2-PSK-CCMP+TKIP][RSN-PSK-CCMP+TKIP][WPA-PSK-CCMP+TKIP][ESS],30:b5:c2:2b:03:36,-68,7 days,
+TechSec,[WPA2-EAP-CCMP][RSN-EAP-CCMP][ESS],3c:8a:b0:f1:28:02,-72,7 days,
+TechPublic,[ESS],3c:8a:b0:f1:28:00,-80,7 days,
+eduroam,[WPA2-EAP-CCMP][RSN-EAP-CCMP][ESS],3c:8a:b0:f1:28:04,-82,7 days,
+108_9,[WPA2-PSK-CCMP+TKIP][RSN-PSK-CCMP+TKIP][WPA-PSK-CCMP+TKIP][ESS],c0:ac:54:f5:b0:e8,-90,7 days,

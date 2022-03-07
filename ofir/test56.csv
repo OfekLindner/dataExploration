@@ -1,0 +1,5 @@
+SSID,Capabilities,BSSID,Level,Timestamp,Venue Name
+Shiran&Gal_EXT,[WPA-PSK-CCMP][WPA2-PSK-CCMP][RSN-PSK-CCMP][ESS],d8:32:14:b2:bc:b1,-80,8 days,
+BeSpot14D1_2.4,[WPA2-PSK-CCMP][RSN-PSK-CCMP][ESS],80:c5:48:31:56:4a,-86,8 days,
+BeSpot14D1_5.0,[WPA2-PSK-CCMP][RSN-PSK-CCMP][ESS],80:c5:48:31:56:4b,-90,8 days,
+BeSpotBF47_2.4,[WPA2-PSK-CCMP][RSN-PSK-CCMP][ESS],b0:d5:9d:fa:94:c9,-96,8 days,
