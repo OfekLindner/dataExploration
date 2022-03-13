@@ -9,7 +9,7 @@ def check_if_BSSID_exists(BSSID):
 
 def check_if_BSSID_exists_REST(BSSID):
     report_url = 'https://api.wigle.net/api/v2/network/detail'
-    # params = {'Authorization':'Basic QUlEN2I0MWM5MWY4MmVkODc4MmIyZjM2YTU3OTk2MzcyMTU6NmRhZTZlOWUwNWJjNDRhOTFmODJlZjRlMTA5ODkzZjE=',
+    # params = {'Authorization':'Basic ',
     #           'netid': BSSID}
     params = {'netid': BSSID}
     # sending request to WiGLE API and get a response:
