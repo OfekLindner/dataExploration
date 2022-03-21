@@ -9,6 +9,10 @@ import matplotlib.pyplot as plt
 from pygle import network
 from wigle import check_if_BSSID_exists_REST, check_if_BSSID_exists
 from collections import Counter
+from mac_vendor_lookup import MacLookup
+from time import strptime
+import datetime
+
 
 def print_shelve(shelve_file):
     shelve_dict = shelve.open(shelve_file)
@@ -17,6 +21,7 @@ def print_shelve(shelve_file):
     for x in dkeys:
         print(x, shelve_dict[x])
     shelve_dict.close()
+
 
 def analyse_BSSIDs(BSSID_list):
     count_visibles = 0
@@ -95,16 +100,13 @@ def analyse_securities(securities):
     risk_grade = 0
     length = len(amounts)
     for item in histogram:
-        risk_grade += item*(histogram[item])
+        risk_grade += item * (histogram[item])
     # the more securities, the more the risk is lower, so dividing.
-    risk_grade = 1/risk_grade if risk_grade != 0 else 1
+    risk_grade = 1 / risk_grade if risk_grade != 0 else 1
     # risk_grade = risk_grade/length
-    average = sum(amounts)/length
+    average = sum(amounts) / length
     print('securities average:', average)
-    print('securities risk grade:', 1/average)
-from mac_vendor_lookup import MacLookup
-from time import strptime
-import datetime
+    print('securities risk grade:', 1 / average)
 
 
 def addVendors(networkData: pd.DataFrame):
@@ -147,8 +149,8 @@ def changeScanTimeType(networkData: pd.DataFrame):
     return networkData
 
 
-def presenceDensity(folderName="Test444")-> pd.DataFrame:
-    networkData = pd.read_csv(folderName + ".csv")
+def presenceDensity(fileName="Test444") -> pd.DataFrame:
+    networkData = pd.read_csv(fileName + ".csv")
 
     df = networkData.drop_duplicates(subset=["BSSID", "ScanTime"])
     scanCount = df["ScanTime"].nunique()
@@ -156,8 +158,8 @@ def presenceDensity(folderName="Test444")-> pd.DataFrame:
     # print(df)
     conditions = [
         (df['counts'] / scanCount >= 2 / 3),
-        (df['counts'] / scanCount >= 1 / 3) & (df['counts'] / scanCount < 2 / 3),
-        (df['counts'] / scanCount < 1 / 3)
+        (df['counts'] / scanCount >= 1 / 18) & (df['counts'] / scanCount < 2 / 3),
+        (df['counts'] / scanCount < 1 / 18)
     ]
 
     values = ['persistent', 'occasional', 'rare']
@@ -165,49 +167,104 @@ def presenceDensity(folderName="Test444")-> pd.DataFrame:
     df['Presence Density'] = np.select(conditions, values)
     df1 = df[["BSSID", "SSID", "Presence Density"]].copy()
 
-    print(type(df1))
-    return df1 # BSSID SSID Presence Density
+    # print(type(df1))
+    return df1  # BSSID SSID Presence Density
 
 
 def calcLifetime(r):
-    return round((r['maxScanTime'] - r['minScanTime']).seconds / 3600, 2)
+    return round((r['maxScanTime'] - r['minScanTime']).seconds / 3600, 2) + (r['maxScanTime'] - r['minScanTime']).days * 24
 
 
-def lifetime(folderName="Test444"):
-    networkData = pd.read_csv(desFolderName + ".csv")
+def lifetime(fileName="Test444"):
+    networkData = pd.read_csv(fileName + ".csv")
+    networkData = networkData.drop_duplicates(subset=["BSSID", "ScanTime"])
 
     networkData = changeScanTimeType(networkData)
-    ScanTimes = networkData.groupby(['BSSID', 'SSID'])[['BSSID', 'SSID', 'ScanTime']].agg(
+    ScanTimes = networkData.groupby(['BSSID', 'SSID']).agg(
         minScanTime=('ScanTime', 'min'),
         maxScanTime=('ScanTime', 'max')).reset_index(['BSSID', 'SSID'])
-
+    print(ScanTimes)
     ScanTimes['lifetime'] = ScanTimes.apply(lambda row: calcLifetime(row), axis=1)
     # BSSID SSID minScanTime maxScanTime lifetime
-    print(type(ScanTimes[['BSSID', 'SSID', 'lifetime']]))
     return ScanTimes[['BSSID', 'SSID', 'lifetime']]
 
 
-if __name__ == '__main__':
-    sourceFolderName = "Test444"
-    desFolderName = "Test444"
-    networkData = pd.read_csv(desFolderName + ".csv")
+def analyse_securities1(r):
+    return r['Capabilities'].count('[') <= 1
 
-    a = presenceDensity()
-    b = lifetime()
-    c = a.merge(b)
-    print(c.head(20))
+
+def hasWPA2only(r):
+    return 'WPA2' in r['Capabilities'] and 'WPA-' not in r['Capabilities']
+
+
+def hasWPA(r):
+    if 'WPA2' in r['Capabilities'] and 'WPA-' not in r['Capabilities']:
+        return False
+    elif 'WPA' in r['Capabilities']:
+        return True
+    return False
+
+
+def securities(fileName="Test444"):
+    networkData = pd.read_csv(fileName + ".csv")
+
+    df = networkData.drop_duplicates(subset=["BSSID", "ScanTime"])
+    df = df[['BSSID', 'SSID','Capabilities']].drop_duplicates()
+
+    df['Open'] = df.apply(lambda row: analyse_securities1(row), axis=1)
+
+    df['WPA2 Only'] = df.apply(lambda row: hasWPA2only(row), axis=1)
+
+    df['WPA'] = df.apply(lambda row: hasWPA(row), axis=1)
+
+    return df[['BSSID','SSID','Open','WPA2 Only','WPA']]
+
+
+if __name__ == '__main__':
+    pd.set_option('display.max_columns', None)
+    sourceFolderName = "Test444"
+    # desFolderName = "Test444"
+    # downloadFromS3(sourceFolderName,"ofekScans-21-3")
+    # networkData = mergeAllFiles("ofekScans-21-3")
+    # networkData.to_csv("ofekScans-21-3" + ".csv")
+    # networkData = pd.read_csv("ofekScans-21-3" + ".csv")
+    # df = networkData[networkData.Capabilities != '[IBSS]']
+    # df.to_csv("ofekScans-21-3" + ".csv")
+    # df = pd.read_csv("ofekScans-21-3.csv")
+
+    # s = securities("ofekScans-21-3")
+    #
+    # p = presenceDensity("ofekScans-21-3")
+    #
+    # l = lifetime("ofekScans-21-3")
+    #
+    # df = p.merge(l)
+    # df = df.merge(s)
+    # df.to_csv("MERGE-ofekScans-21-3.csv")
+    df = pd.read_csv("MERGE-ofekScans-21-3.csv")
+    presenceDensity = df['Presence Density'].value_counts().rename(index='')
+    ax = presenceDensity.plot(kind='pie')
+    ax.set_title("Presence Density")
+    plt.tight_layout()
+    plt.show()
+
+    sec = df[['Open','WPA2 Only','WPA']].value_counts().rename(index='')
+    ax = sec.plot(kind='pie')
+    ax.set_title("Securities distribution - Open, WPA2 only, WPA")
+    plt.tight_layout()
+    plt.show()
+
+    df.value_counts('lifetime').sort_index(ascending=False).plot(kind='barh')
+    plt.xlabel("Amount of networks")
+    plt.ylabel("Lifetime [hours]")
+    plt.tight_layout()
+    plt.show()
 
     # downloadFromS3(sourceFolderName,desFolderName)
     # networkData = mergeAllFiles(desFolderName)
     # networkData.to_csv(desFolderName + ".csv")
     # networkData = addVendors(networkData)
     # networkData.to_csv(desFolderName + ".csv")
-
-
-
-
-
-
 
     # networkData = changeScanTimeType(networkData)
     # # networkData.to_csv("changeScanTimeType.csv")
@@ -239,18 +296,17 @@ if __name__ == '__main__':
 
     # addVendors(pd.read_csv('Test444.csv'))
     # df.to_csv('ofir_total.csv')
-
-    df = pd.read_csv('ofir_total.csv')
-
-    # BSSID_list = df['BSSID']
-    # analyse_BSSIDs(BSSID_list)
-    # print_shelve('wigle_cache.py')
-
-    securities_list = df[df.Capabilities!='[IBSS]']
-    securities_list = securities_list['Capabilities']
-
-    analyse_securities(securities_list)
-
+    #
+    # df = pd.read_csv('ofir_total.csv')
+    #
+    # # BSSID_list = df['BSSID']
+    # # analyse_BSSIDs(BSSID_list)
+    # # print_shelve('wigle_cache.py')
+    #
+    # securities_list = df[df.Capabilities != '[IBSS]']
+    # securities_list = securities_list['Capabilities']
+    #
+    # analyse_securities(securities_list)
 
     # df[df['Timestamp'] == '6 days']['SSID'].to_csv('ofek_total_6_days.csv')
     # print(df['Timestamp'].value_counts())
@@ -282,18 +338,17 @@ if __name__ == '__main__':
     # plt.title("Number of days from the first appearance for each network")
     # plt.grid()
     # plt.tight_layout()
+    # # plt.savefig('ofirTimestamp_SSID.png')
+    # # plt.show()
+    # # print(df['Timestamp'].unique().tolist())
+    # df = df.astype(str)
+    # plt.figure(figsize=(10, 6))
+    #
+    # plt.scatter(df.SSID, df.Timestamp, c='g', s=5)
+    # plt.xlabel("Network SSID")
+    # plt.ylabel("Number of days")
+    # plt.title("Number of days from the first appearance for each network")
+    # plt.grid()
+    # plt.tight_layout()
     # plt.savefig('ofirTimestamp_SSID.png')
     # plt.show()
-    # print(df['Timestamp'].unique().tolist())
-    df = df.astype(str)
-    plt.figure(figsize=(10, 6))
-
-    plt.scatter(df.SSID, df.Timestamp, c='g', s=5)
-    plt.xlabel("Network SSID")
-    plt.ylabel("Number of days")
-    plt.title("Number of days from the first appearance for each network")
-    plt.grid()
-    plt.tight_layout()
-    plt.savefig('ofirTimestamp_SSID.png')
-    plt.show()
-
