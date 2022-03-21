@@ -1,3 +1,5 @@
+import shelve
+
 import requests
 from cloudpathlib import CloudPath
 import pandas as pd
@@ -9,33 +11,85 @@ from pygle import network
 from wigle import check_if_BSSID_exists_REST, check_if_BSSID_exists
 from collections import Counter
 
+def print_shelve(shelve_file):
+    shelve_dict = shelve.open(shelve_file)
+    dkeys = list(shelve_dict.keys())
+    # dkeys.sort()
+    for x in dkeys:
+        print(x, shelve_dict[x])
+    shelve_dict.close()
+
 def analyse_BSSIDs(BSSID_list):
     count_visibles = 0
     total = len(BSSID_list)
+    # BSSID = 'c0:ac:54:f8:b4:a4'
+    wigle_cache = shelve.open('wigle_cache.py')
+    # print_shelve('wigle_cache.py')
+
+    print(wigle_cache)
+    # del wigle_cache['c0:ac:54:f8:b4:a4']
     for BSSID in BSSID_list:
-        try:
-            # result_code = check_if_BSSID_exists(BSSID)
-            result_code = network.detail(netid=BSSID)
-            count_visibles += 1
-            # found in WiGLE database
-            print('BSSID:', BSSID + ',', 'Result:', result_code)
-        except Exception as e:
-            # not found or other error
-            # print(BSSID, e.args[0][0:3])
-            print('BSSID:', BSSID + ',', 'Result:', e.args[0].split(':')[0])
+        if BSSID not in wigle_cache:
+            try:
+                # result_code = check_if_BSSID_exists(BSSID)
+                result_code = network.detail(netid=BSSID)
+
+                wigle_cache[BSSID] = result_code
+
+                count_visibles += 1
+                # found in WiGLE database
+                print('Inserted to cache. BSSID:', BSSID + ',', 'Result:', result_code)
+            except Exception as e:
+                # not found or other error
+                # print(BSSID, e.args[0][0:3])
+                if e.args[0][0:3] == '429':
+                    break
+                wigle_cache[BSSID] = e.args[0].split(':')[0]
+                print('Inserted to cache. BSSID:', BSSID + ',', 'Result:', e.args[0].split(':')[0])
+        else:
+            print('Already in cache. BSSID:', BSSID + ',', 'Result:', wigle_cache[BSSID])
+
+    wigle_cache.close()
     print('Total visible networks:', count_visibles, 'out of', total)
 
 
 def analyse_securities(securities):
+    index = 0
+    # securities = securities[securities.Capabilities!='[IBSS]']
+    # for security in securities:
+    #     if 'IBSS' in security:
+    #         securities.drop(index)
+    #     index += 1
+
     counts = securities.value_counts()
+    total = len(securities)
+    print(counts)
     amounts = []
+    has_WPA2_ONLY = 0
+    has_WPA = 0
+    opened = 0
+
     for security in securities:
         amount = security.count('[')
         # print(amount)
         amounts.append(amount)
+        if amount <= 1:
+            opened += 1
+        if 'WPA2' in security and 'WPA-' not in security:
+            has_WPA2_ONLY += 1
+        elif 'WPA' in security:
+            has_WPA += 1
+
+    print()
+    print('Total networks:', total)
+    print('Opened networks:', opened)
+    print('Networks which has WPA2 and not WPA:', has_WPA2_ONLY)
+    print('Networks which has WPA:', has_WPA)
+
     # print(amounts)
     # print(counts)
     # print(counts['[ESS]'])
+    print()
     histogram = Counter(amounts)
     print('Amount of securities histogram:')
     print(histogram)
@@ -44,10 +98,11 @@ def analyse_securities(securities):
     for item in histogram:
         risk_grade += item*(histogram[item])
     # the more securities, the more the risk is lower, so dividing.
-    risk_grade = 1/risk_grade if risk_grade!=0 else 1
+    risk_grade = 1/risk_grade if risk_grade != 0 else 1
     # risk_grade = risk_grade/length
-    print('securities average:', sum(amounts)/length)
-    print('securities risk grade:', risk_grade)
+    average = sum(amounts)/length
+    print('securities average:', average)
+    print('securities risk grade:', 1/average)
 
 if __name__ == '__main__':
 
@@ -79,11 +134,15 @@ if __name__ == '__main__':
 
     df = pd.read_csv('ofir_total.csv')
 
-    BSSID_list = df['BSSID']
-    analyse_BSSIDs(BSSID_list)
+    # BSSID_list = df['BSSID']
+    # analyse_BSSIDs(BSSID_list)
+    # print_shelve('wigle_cache.py')
 
-    securities = df['Capabilities']
-    analyse_securities(securities)
+    securities_list = df[df.Capabilities!='[IBSS]']
+    securities_list = securities_list['Capabilities']
+
+    analyse_securities(securities_list)
+
 
     # df[df['Timestamp'] == '6 days']['SSID'].to_csv('ofek_total_6_days.csv')
     # print(df['Timestamp'].value_counts())
