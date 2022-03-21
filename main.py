@@ -1,5 +1,4 @@
 import shelve
-
 import requests
 from cloudpathlib import CloudPath
 import pandas as pd
@@ -103,33 +102,142 @@ def analyse_securities(securities):
     average = sum(amounts)/length
     print('securities average:', average)
     print('securities risk grade:', 1/average)
+from mac_vendor_lookup import MacLookup
+from time import strptime
+import datetime
+
+
+def addVendors(networkData: pd.DataFrame):
+    vendors = []
+    for _, row in networkData.iterrows():
+        try:
+            vendors.append(MacLookup().lookup(row['BSSID']))
+        except:
+            vendors.append(np.nan)
+    networkData['vendor'] = vendors
+    return networkData
+
+
+def downloadFromS3(sourceFolderName, desFolderName):
+    bucketName = "storagebucketname130605-dev/private/us-east-1:decaf162-e212-4ee2-96e4-adea45f7d0f6/"
+    cp = CloudPath("s3://" + bucketName + sourceFolderName + "/")
+    cp.download_to(desFolderName)
+
+
+def mergeAllFiles(FolderName):
+    path = os.getcwd() + "/" + FolderName
+    csv_files = glob.glob(os.path.join(path, "*.csv"))
+    networkData = pd.read_csv(csv_files[0])
+    for f in csv_files[1:]:
+        networkData1 = pd.read_csv(f)
+        networkData = pd.concat([networkData, networkData1])
+    return networkData
+
+
+def changeScanTimeType(networkData: pd.DataFrame):
+    scanTimes = []
+    for _, row in networkData.iterrows():
+        st = row['ScanTime'].split()
+        mon = int(strptime(st[1], '%b').tm_mon)
+        stTime = st[3].split(":")
+        stTime = list(map(int, stTime))
+        st = datetime.datetime(int(st[5]), mon, int(st[2]), stTime[0], stTime[1], stTime[2])
+        scanTimes.append(st)
+    networkData['ScanTime'] = scanTimes
+    return networkData
+
+
+def presenceDensity(folderName="Test444")-> pd.DataFrame:
+    networkData = pd.read_csv(folderName + ".csv")
+
+    df = networkData.drop_duplicates(subset=["BSSID", "ScanTime"])
+    scanCount = df["ScanTime"].nunique()
+    df = df.groupby(['BSSID', 'SSID'])[['BSSID', 'SSID']].size().sort_values(ascending=True).reset_index(name='counts')
+    # print(df)
+    conditions = [
+        (df['counts'] / scanCount >= 2 / 3),
+        (df['counts'] / scanCount >= 1 / 3) & (df['counts'] / scanCount < 2 / 3),
+        (df['counts'] / scanCount < 1 / 3)
+    ]
+
+    values = ['persistent', 'occasional', 'rare']
+
+    df['Presence Density'] = np.select(conditions, values)
+    df1 = df[["BSSID", "SSID", "Presence Density"]].copy()
+
+    print(type(df1))
+    return df1 # BSSID SSID Presence Density
+
+
+def calcLifetime(r):
+    return round((r['maxScanTime'] - r['minScanTime']).seconds / 3600, 2)
+
+
+def lifetime(folderName="Test444"):
+    networkData = pd.read_csv(desFolderName + ".csv")
+
+    networkData = changeScanTimeType(networkData)
+    ScanTimes = networkData.groupby(['BSSID', 'SSID'])[['BSSID', 'SSID', 'ScanTime']].agg(
+        minScanTime=('ScanTime', 'min'),
+        maxScanTime=('ScanTime', 'max')).reset_index(['BSSID', 'SSID'])
+
+    ScanTimes['lifetime'] = ScanTimes.apply(lambda row: calcLifetime(row), axis=1)
+    # BSSID SSID minScanTime maxScanTime lifetime
+    print(type(ScanTimes[['BSSID', 'SSID', 'lifetime']]))
+    return ScanTimes[['BSSID', 'SSID', 'lifetime']]
+
 
 if __name__ == '__main__':
+    sourceFolderName = "Test444"
+    desFolderName = "Test444"
+    networkData = pd.read_csv(desFolderName + ".csv")
 
-    # cp = CloudPath("s3://storagebucketname130605-dev/private/us-east-1:decaf162-e212-4ee2-96e4-adea45f7d0f6/d46aa25e-8467-4cd4-a1ee-bc3df67fb73d/")
-    # cp.download_to("ofir")
+    a = presenceDensity()
+    b = lifetime()
+    c = a.merge(b)
+    print(c.head(20))
 
-    # use glob to get all the csv files
-    # in the folder
-    # path = os.getcwd() + '/ofir'
-    # csv_files = glob.glob(os.path.join(path, "*.csv"))
-    # # #
-    # df = pd.read_csv(csv_files[0])
-    # # # loop over the list of csv files
-    # for f in csv_files[1:]:
-    #     # read the csv file
-    #     df1 = pd.read_csv(f)
-    #     df = pd.concat([df, df1])
+    # downloadFromS3(sourceFolderName,desFolderName)
+    # networkData = mergeAllFiles(desFolderName)
+    # networkData.to_csv(desFolderName + ".csv")
+    # networkData = addVendors(networkData)
+    # networkData.to_csv(desFolderName + ".csv")
+
+
+
+
+
+
+
+    # networkData = changeScanTimeType(networkData)
+    # # networkData.to_csv("changeScanTimeType.csv")
+    # # networkData = pd.read_csv(desFolderName + ".csv")
     # #
-    # #     # print the location and filename
-    # #     # print('Location:', f)
-    # #     # print('File Name:', f.split("\\")[-1])
-    # #
-    # #     # print the content
-    # #     # print('Content:')
-    # #     # print(df)
-    # #     # print()
-    # #
+    # ScanTimes = networkData.groupby(['BSSID']).agg({'ScanTime': ['min', 'max']})
+    # ScanTimes.to_csv("ScanTimes.csv")
+    # # ScanTimes = pd.read_csv("ScanTimes.csv")
+    # # ScanTimes = ScanTimes.drop(labels=[0,1], axis=0)
+    # # print(ScanTimes.columns)
+    #
+    # minDate = ScanTimes[('ScanTime', 'min')]
+    # maxDate = ScanTimes[('ScanTime', 'max')]
+    # # for i, x in enumerate(minDate):
+    # #     print(x)
+    #
+    # timePeriods = []
+    # for idx, minDateVal in enumerate(minDate):
+    #     timePeriods.append(round((maxDate[idx] - minDateVal).seconds / 3600, 2))
+    # ScanTimes['timePeriod'] = timePeriods
+    # ScanTimes.to_csv("timePeriods.csv")
+    # ScanTimes.value_counts('timePeriod').sort_index(ascending=False).plot(kind='barh')
+    # plt.xlabel("Amount of networks")
+    # plt.ylabel("Duration from first to last appearance (hours)")
+    # # plt.title("Mince Pie Consumption 18/19")
+    #
+    # plt.tight_layout()
+    # plt.show()
+
+    # addVendors(pd.read_csv('Test444.csv'))
     # df.to_csv('ofir_total.csv')
 
     df = pd.read_csv('ofir_total.csv')
@@ -150,15 +258,21 @@ if __name__ == '__main__':
     # print(dfc)
     # df1 = df['SSID'].value_counts()
 
-    # df['SSID'].value_counts().plot(kind='bar')
-    # plt.title("Number of appearances per network")
+    # # df[df['Timestamp'] == '6 days']['SSID'].to_csv('ofek_total_6_days.csv')
+    # # print(df['Timestamp'].value_counts())
+    # # print(df[df['Timestamp'] == '5 days']['SSID'].value_counts())
+    # # print(dfc)
+    # # df1 = df['SSID'].value_counts()
     #
-    # plt.xlabel("Network SSID")
-    # plt.ylabel("Appearances")
-    # plt.tight_layout()
-    # plt.savefig('ofirSSID_hist.png')
-    # plt.show()
-    # print(df['Timestamp'].unique().tolist())
+    # # df['SSID'].value_counts().plot(kind='bar')
+    # # plt.title("Number of appearances per network")
+    # #
+    # # plt.xlabel("Network SSID")
+    # # plt.ylabel("Appearances")
+    # # plt.tight_layout()
+    # # plt.savefig('ofirSSID_hist.png')
+    # # plt.show()
+    # # print(df['Timestamp'].unique().tolist())
     # df = df.astype(str)
     # plt.figure(figsize=(10, 6))
     #
@@ -170,4 +284,16 @@ if __name__ == '__main__':
     # plt.tight_layout()
     # plt.savefig('ofirTimestamp_SSID.png')
     # plt.show()
+    # print(df['Timestamp'].unique().tolist())
+    df = df.astype(str)
+    plt.figure(figsize=(10, 6))
+
+    plt.scatter(df.SSID, df.Timestamp, c='g', s=5)
+    plt.xlabel("Network SSID")
+    plt.ylabel("Number of days")
+    plt.title("Number of days from the first appearance for each network")
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig('ofirTimestamp_SSID.png')
+    plt.show()
 
